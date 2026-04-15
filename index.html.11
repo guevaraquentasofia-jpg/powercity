@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>PowerCity Final PRO</title>
+
+<style>
+body { margin:0; overflow:hidden; font-family:Arial; }
+
+/* ===== MENÚ ===== */
+#menu {
+  position:absolute;
+  width:100%;
+  height:100%;
+  background:#0b1220;
+  color:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:10;
+}
+
+#menu button {
+  padding:12px;
+  margin:8px;
+  width:200px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+/* ===== UI ===== */
+#ui {
+  position:absolute;
+  top:10px;
+  left:10px;
+  background:rgba(0,0,0,0.7);
+  color:white;
+  padding:12px;
+  border-radius:10px;
+  width:320px;
+  display:none;
+  z-index:5;
+}
+
+#ui button {
+  width:100%;
+  margin-top:5px;
+  padding:8px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+/* ===== TIENDA ===== */
+#shop {
+  position:absolute;
+  bottom:10px;
+  left:10px;
+  background:rgba(0,0,0,0.85);
+  color:white;
+  padding:12px;
+  border-radius:10px;
+  width:300px;
+  display:none;
+  z-index:20;
+}
+
+#shop button {
+  width:100%;
+  margin-top:5px;
+  padding:8px;
+  border:none;
+  border-radius:6px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 🎮 MENÚ -->
+<div id="menu">
+  <h1>🏙 PowerCity</h1>
+  <button onclick="startGame()">▶ Jugar</button>
+</div>
+
+<!-- 🎮 UI -->
+<div id="ui">
+  <h3>🏙 PowerCity</h3>
+
+  💰 Dinero: <span id="money">200</span><br>
+  ⚡ Energía: <span id="energy">100</span><br>
+
+  <button onclick="setMode('solar')">☀ Panel solar (-50)</button>
+  <button onclick="setMode('wind')">🌬 Turbina (-80)</button>
+
+  <button onclick="toggleShop()">🛒 Tienda</button>
+
+  <div style="margin-top:10px;color:#4dd4ff;" id="mission">
+    Misión inicial: Construye un panel solar ☀
+  </div>
+</div>
+
+<!-- 🛒 TIENDA -->
+<div id="shop">
+  <h3>🛒 Tienda</h3>
+
+  <button onclick="buyPackage(100)">💰 +100 monedas</button>
+  <button onclick="buyPackage(300)">💰 +300 monedas</button>
+  <button onclick="buyPackage(800)">💰 +800 monedas</button>
+
+  <button onclick="setMode('solar')">☀ Construir panel</button>
+  <button onclick="setMode('wind')">🌬 Construir turbina</button>
+
+  <button onclick="closeShop()">❌ Cerrar</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<script>
+
+// ================= ESTADO =================
+let money = 200;
+let energy = 100;
+let mode = null;
+let turbines = [];
+
+let missionIndex = 0;
+
+const missions = [
+  { text:"Construye 1 panel solar ☀", reward:100 },
+  { text:"Construye 1 turbina 🌬", reward:150 },
+  { text:"Genera energía ⚡", reward:200 }
+];
+
+// ================= MENÚ =================
+function startGame(){
+  document.getElementById("menu").style.display="none";
+  document.getElementById("ui").style.display="block";
+  updateMission();
+}
+
+// ================= TIENDA =================
+function toggleShop(){
+  let shop=document.getElementById("shop");
+  shop.style.display = (shop.style.display==="block")?"none":"block";
+}
+
+function closeShop(){
+  document.getElementById("shop").style.display="none";
+}
+
+function buyPackage(amount){
+  money += amount;
+  setMission("💰 Compraste +" + amount + " monedas");
+}
+
+// ================= MISIONES =================
+function updateMission(){
+  if(missionIndex < missions.length){
+    document.getElementById("mission").innerText =
+      "🎯 Misión: " + missions[missionIndex].text;
+  } else {
+    document.getElementById("mission").innerText =
+      "🏆 ¡Todas las misiones completadas!";
+  }
+}
+
+function completeMission(){
+  money += missions[missionIndex].reward;
+  missionIndex++;
+  updateMission();
+}
+
+// ================= ESCENA =================
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+
+// luz
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+
+const light=new THREE.DirectionalLight(0xffffff,1);
+light.position.set(10,20,10);
+scene.add(light);
+
+// cámara
+const camera=new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,1000);
+
+// render
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth,window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// ================= SUELO =================
+const ground=new THREE.Mesh(
+  new THREE.PlaneGeometry(200,200),
+  new THREE.MeshStandardMaterial({color:0x3a7d44})
+);
+ground.rotation.x=-Math.PI/2;
+scene.add(ground);
+
+// ================= CIUDAD REALISTA =================
+for(let x=-90;x<=90;x+=14){
+  for(let z=-90;z<=90;z+=14){
+
+    let h=2+Math.random()*14;
+
+    let color=new THREE.Color(
+      0.2+Math.random()*0.2,
+      0.3+Math.random()*0.3,
+      0.6+Math.random()*0.3
+    );
+
+    let b=new THREE.Mesh(
+      new THREE.BoxGeometry(4,h,4),
+      new THREE.MeshStandardMaterial({color:color})
+    );
+
+    b.position.set(x,h/2,z);
+    scene.add(b);
+  }
+}
+
+// ================= PANEL SOLAR =================
+function createSolar(x,z){
+
+  let panel=new THREE.Mesh(
+    new THREE.BoxGeometry(4,0.2,2),
+    new THREE.MeshStandardMaterial({color:0x111111})
+  );
+
+  panel.position.set(x,0.8,z);
+  panel.rotation.x=-0.5;
+  scene.add(panel);
+
+  let soporte=new THREE.Mesh(
+    new THREE.BoxGeometry(0.2,1.2,0.2),
+    new THREE.MeshStandardMaterial({color:0x666666})
+  );
+
+  soporte.position.set(x,0.2,z+1);
+  scene.add(soporte);
+
+  if(missions[missionIndex]?.text.includes("panel")){
+    completeMission();
+  }
+}
+
+// ================= TURBINA =================
+function createWind(x,z){
+
+  let tower=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.25,0.5,8),
+    new THREE.MeshStandardMaterial({color:0x888888})
+  );
+
+  tower.position.set(x,4,z);
+  scene.add(tower);
+
+  let blades=[];
+
+  for(let i=0;i<3;i++){
+
+    let b=new THREE.Mesh(
+      new THREE.BoxGeometry(0.15,4,0.5),
+      new THREE.MeshStandardMaterial({color:0xffffff})
+    );
+
+    b.position.set(x,8,z);
+    b.rotation.z=i*2.1;
+
+    scene.add(b);
+    blades.push(b);
+  }
+
+  turbines.push(blades);
+
+  if(missions[missionIndex]?.text.includes("turbina")){
+    completeMission();
+  }
+}
+
+// ================= CONSTRUCCIÓN =================
+function setMode(t){
+  mode=t;
+}
+
+function setMission(text){
+  document.getElementById("mission").innerText=text;
+}
+
+document.addEventListener("pointerdown",(e)=>{
+
+  if(!mode) return;
+
+  let mouse=new THREE.Vector2();
+  mouse.x=(e.clientX/window.innerWidth)*2-1;
+  mouse.y=-(e.clientY/window.innerHeight)*2+1;
+
+  let ray=new THREE.Raycaster();
+  ray.setFromCamera(mouse,camera);
+
+  let hit=ray.intersectObject(ground);
+
+  if(hit.length>0){
+
+    let p=hit[0].point;
+
+    if(mode==="solar" && money>=50){
+      createSolar(p.x,p.z);
+      money-=50;
+    }
+
+    if(mode==="wind" && money>=80){
+      createWind(p.x,p.z);
+      money-=80;
+    }
+
+    mode=null;
+  }
+});
+
+// ================= PLAYER =================
+const player=new THREE.Mesh(
+  new THREE.BoxGeometry(1,1,1),
+  new THREE.MeshStandardMaterial({color:0xff0000})
+);
+
+player.position.y=0.5;
+scene.add(player);
+
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="w") player.position.z-=1;
+  if(e.key==="s") player.position.z+=1;
+  if(e.key==="a") player.position.x-=1;
+  if(e.key==="d") player.position.x+=1;
+});
+
+// ================= CAMARA =================
+let angle=0;
+let dist=25;
+
+document.addEventListener("mousemove",(e)=>{
+  angle=(e.clientX/window.innerWidth)*Math.PI*2;
+});
+
+// ================= LOOP =================
+function animate(){
+  requestAnimationFrame(animate);
+
+  turbines.forEach(t=>{
+    t.forEach(b=>{
+      b.rotation.y+=0.1;
+    });
+  });
+
+  energy += turbines.length*0.08;
+
+  document.getElementById("money").innerText=money;
+  document.getElementById("energy").innerText=Math.floor(energy);
+
+  camera.position.x=player.position.x+Math.cos(angle)*dist;
+  camera.position.z=player.position.z+Math.sin(angle)*dist;
+  camera.position.y=18;
+
+  camera.lookAt(player.position);
+
+  renderer.render(scene,camera);
+}
+
+animate();
+
+</script>
+
+</body>
+</html>
